@@ -1,0 +1,105 @@
+---
+description: How to use Prisma in Signal Lab. Forbidden patterns (raw SQL, other ORMs, manual DDL).
+globs: ["signal-lab/apps/backend/src/**/*.ts", "signal-lab/prisma/**"]
+alwaysApply: true
+---
+
+# Prisma Patterns
+
+## Always inject PrismaService — never instantiate directly
+
+```ts
+// ✅ correct
+@Injectable()
+export class ScenariosService {
+  constructor(private readonly prisma: PrismaService) {}
+}
+
+// ❌ wrong — creates unmanaged connection pool
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+```
+
+## No raw SQL — ever
+
+```ts
+// ❌ all forbidden
+this.prisma.$queryRaw`SELECT * FROM "ScenarioRun"`;
+this.prisma.$executeRaw`DELETE FROM "ScenarioRun" WHERE id = ${id}`;
+this.prisma.$queryRawUnsafe(userInput);   // SQL injection vector
+
+// ✅ use the query API
+this.prisma.scenarioRun.findMany({ where: { type: dto.type } });
+this.prisma.scenarioRun.delete({ where: { id } });
+```
+
+## No other ORMs or raw drivers
+
+```ts
+// ❌ forbidden imports in application code
+import { Client } from 'pg';
+import { DataSource } from 'typeorm';
+import { Sequelize } from 'sequelize';
+import knex from 'knex';
+```
+
+## Use generated types — never duplicate model shapes
+
+```ts
+// ✅ correct
+import type { ScenarioRun } from '@prisma/client';
+async findOne(id: string): Promise<ScenarioRun> { ... }
+
+// ❌ wrong — manual interface duplicates schema
+interface ScenarioRun {
+  id: string;
+  type: string;   // now two sources of truth
+}
+```
+
+## Schema changes — always through Prisma
+
+```
+# ✅ correct workflow
+1. Edit signal-lab/prisma/schema.prisma
+2. npx prisma migrate dev --name describe_change   (dev)
+   OR
+   npx prisma db push                              (quick iteration)
+3. npx prisma generate
+
+# ❌ forbidden
+psql -c "ALTER TABLE ..."    # schema drift
+```
+
+## Query patterns
+
+```ts
+// Pagination — always use take/skip, never fetch all
+this.prisma.scenarioRun.findMany({
+  orderBy: { createdAt: 'desc' },
+  take: 50,
+  skip: page * 50,
+});
+
+// Upsert — prefer over find-then-create
+this.prisma.scenarioRun.upsert({
+  where: { id },
+  update: { status },
+  create: { id, type, status },
+});
+
+// Select only needed fields — avoid over-fetching
+this.prisma.scenarioRun.findMany({
+  select: { id: true, type: true, status: true, createdAt: true },
+});
+```
+
+## Transactions — use $transaction for multi-step writes
+
+```ts
+// ✅ atomic multi-step write
+await this.prisma.$transaction([
+  this.prisma.scenarioRun.update({ where: { id }, data: { status: 'running' } }),
+  this.prisma.scenarioEvent.create({ data: { runId: id, event: 'started' } }),
+]);
+```

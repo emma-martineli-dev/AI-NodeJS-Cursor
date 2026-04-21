@@ -1,0 +1,101 @@
+---
+description: Naming for Prometheus metrics, JSON log format, and when to send to Sentry. Single source of truth for observability conventions.
+globs: ["signal-lab/apps/backend/src/**/*.ts"]
+alwaysApply: true
+---
+
+# Observability Conventions
+
+## Prometheus — metric naming
+
+Pattern: `[domain]_[action]_[unit]`
+
+```
+# ✅ correct
+scenario_runs_total          # counter — total runs
+scenario_duration_ms         # histogram — duration
+scenario_errors_total        # counter — errors by type
+http_requests_total          # counter — all HTTP requests
+db_query_duration_ms         # histogram — DB query time
+
+# ❌ wrong
+totalRuns                    # camelCase forbidden
+run_count                    # missing domain prefix
+scenarios                    # too vague, no action/unit
+```
+
+### Label conventions
+- `status`: `completed` | `failed` | `pending` | `running`
+- `type`: scenario type (e.g. `load_test`, `stress_test`)
+- `method`: HTTP method lowercase (`get`, `post`)
+- `route`: normalized path (`/api/scenarios/:id`, not the actual ID)
+
+```ts
+// ✅ correct label usage
+scenarioCounter.inc({ type: dto.type, status: 'completed' });
+
+// ❌ wrong — raw IDs as label values blow up cardinality
+scenarioCounter.inc({ runId: run.id, status: 'completed' });
+```
+
+## Structured logs — JSON format
+
+Every log call MUST pass an object. Never a plain string.
+
+### Required fields
+```ts
+{
+  event: string;      // snake_case verb_noun: 'scenario_started', 'db_query_failed'
+  // + domain-specific fields
+}
+```
+
+### Standard events per lifecycle
+```ts
+// Service method entry
+this.logger.log({ event: 'scenario_run_start', type: dto.type });
+
+// Success
+this.logger.log({ event: 'scenario_run_complete', type: dto.type, durationMs: elapsed });
+
+// Failure (in catch)
+this.logger.error({ event: 'scenario_run_failed', type: dto.type, error: message });
+```
+
+### Forbidden log patterns
+```ts
+// ❌ plain string — unparseable in Loki
+this.logger.log('scenario started');
+this.logger.log(`running ${dto.type}`);
+
+// ❌ object without event field — unqueryable
+this.logger.log({ type: dto.type, id: run.id });
+
+// ❌ logging sensitive data
+this.logger.log({ event: 'user_login', password: dto.password });
+```
+
+## Sentry — when to capture
+
+| Situation | Action |
+|-----------|--------|
+| Unhandled exception in service | `Sentry.captureException(err, { tags, extra })` |
+| Expected business error (404, 400) | Do NOT send to Sentry |
+| External service timeout | `Sentry.captureException` with `tags.service` |
+| DB connection failure | `Sentry.captureException` with `tags.layer: 'db'` |
+
+```ts
+// ✅ correct — unexpected error with context
+} catch (err) {
+  Sentry.captureException(err, {
+    tags: { domain: 'scenarios', type: dto.type },
+    extra: { runId: run.id },
+  });
+}
+
+// ❌ wrong — no tags (unfilterable in Sentry dashboard)
+Sentry.captureException(err);
+
+// ❌ wrong — sending expected errors
+throw new NotFoundException('run not found');  // do NOT also captureException here
+```

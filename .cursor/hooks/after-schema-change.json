@@ -1,0 +1,13 @@
+{
+  "name": "After Schema Change",
+  "version": "1.0.0",
+  "description": "Reminds to migrate and regenerate Prisma client after schema edits",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["signal-lab/prisma/schema.prisma"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The Prisma schema was just edited. Please: 1) Run `npx prisma migrate dev --name <describe_change> --schema=signal-lab/prisma/schema.prisma`, 2) Run `npx prisma generate --schema=signal-lab/prisma/schema.prisma`, 3) Check for TypeScript errors with `npx tsc --noEmit` in signal-lab/apps/backend, 4) If a new model was added, remind the user to run /add-endpoint for the new resource."
+  }
+}

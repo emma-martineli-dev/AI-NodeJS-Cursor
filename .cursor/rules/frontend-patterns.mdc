@@ -1,0 +1,139 @@
+---
+description: Frontend conventions — TanStack Query for server state, RHF for forms, shadcn for UI. Prevents wrong library choices.
+globs: ["signal-lab/apps/frontend/src/**/*.tsx", "signal-lab/apps/frontend/src/**/*.ts"]
+alwaysApply: true
+---
+
+# Frontend Patterns
+
+## Server state — TanStack Query only
+
+```tsx
+// ✅ correct — all API calls go through useQuery / useMutation
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+function ScenarioList() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['scenarios'],
+    queryFn: fetchScenarios,
+    refetchInterval: 10_000,
+  });
+}
+
+// ❌ wrong — useEffect + fetch directly
+function ScenarioList() {
+  const [data, setData] = useState([]);
+  useEffect(() => {
+    fetch('/api/scenarios').then(r => r.json()).then(setData);
+  }, []);
+}
+
+// ❌ wrong — SWR
+import useSWR from 'swr';
+```
+
+### Query key conventions
+```ts
+['scenarios']              // list
+['scenarios', id]          // single item
+['scenarios', 'runs']      // nested resource
+['health']                 // health check
+```
+
+### Invalidation after mutation
+```ts
+const queryClient = useQueryClient();
+const mutation = useMutation({
+  mutationFn: runScenario,
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scenarios'] }),
+});
+```
+
+## Forms — React Hook Form + zod
+
+```tsx
+// ✅ correct
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({
+  type: z.string().min(1, 'Type is required').max(50),
+});
+type FormValues = z.infer<typeof schema>;
+
+function RunForm() {
+  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+  });
+}
+
+// ❌ wrong — Formik
+import { Formik, Form, Field } from 'formik';
+
+// ❌ wrong — manual validation
+const [error, setError] = useState('');
+if (!type) setError('required');
+```
+
+## UI components — shadcn/ui
+
+Always use shadcn components. Never build primitives from scratch.
+
+```tsx
+// ✅ correct
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+// ❌ wrong — raw HTML with manual styling
+<button className="bg-blue-500 text-white px-4 py-2 rounded">Submit</button>
+
+// ❌ wrong — MUI
+import { Button } from '@mui/material';
+```
+
+## Layout — Tailwind only
+
+```tsx
+// ✅ correct
+<div className="flex flex-col gap-6 max-w-5xl mx-auto px-4 py-8">
+
+// ❌ wrong — inline styles
+<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+// ❌ wrong — CSS modules
+import styles from './page.module.css';
+```
+
+## Client components — minimize 'use client'
+
+```tsx
+// ✅ correct — only mark client if it uses hooks or browser APIs
+'use client';
+export function RunForm() { /* uses useForm */ }
+
+// Server component (no directive needed)
+export default function Page() {
+  return <RunForm />;   // composes client component
+}
+
+// ❌ wrong — marking everything client
+'use client';
+export default function StaticCard() {
+  return <Card><CardContent>Static text</CardContent></Card>;
+}
+```
+
+## Error states — always handle loading + error
+
+```tsx
+// ✅ correct
+const { data, isLoading, isError } = useQuery(...);
+if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
+if (isError) return <p className="text-destructive">Failed to load.</p>;
+
+// ❌ wrong — silent failure
+const { data } = useQuery(...);
+return <div>{data?.map(...)}</div>;   // crashes if data is undefined
+```

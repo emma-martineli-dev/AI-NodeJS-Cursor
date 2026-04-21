@@ -1,0 +1,59 @@
+---
+description: Approved and forbidden libraries for Signal Lab. Prevents introducing unapproved dependencies.
+globs: ["signal-lab/**/*.ts", "signal-lab/**/*.tsx", "signal-lab/**/package.json"]
+alwaysApply: true
+---
+
+# Stack Constraints
+
+## Approved stack — use these, nothing else
+
+### Frontend
+| Concern | Approved | Forbidden alternatives |
+|---------|----------|----------------------|
+| Framework | Next.js 14 App Router | CRA, Vite+React, Remix |
+| Server state | TanStack Query | SWR, React Query v3, Apollo Client |
+| Forms | React Hook Form + zod | Formik, react-final-form, Yup alone |
+| UI components | shadcn/ui (Radix primitives) | MUI, Ant Design, Chakra UI |
+| Styling | Tailwind CSS | styled-components, emotion, CSS modules |
+| Global state | React context + useState | Redux, Zustand, Jotai, MobX |
+
+### Backend
+| Concern | Approved | Forbidden alternatives |
+|---------|----------|----------------------|
+| Framework | NestJS | Express alone, Fastify, Hono |
+| ORM | Prisma | TypeORM, Sequelize, Drizzle, knex |
+| Validation | class-validator + class-transformer | joi, zod on backend, manual validation |
+| HTTP docs | @nestjs/swagger | swagger-jsdoc, manual OpenAPI |
+| Error tracking | @sentry/node | Bugsnag, Rollbar, custom solutions |
+
+### Infrastructure
+| Concern | Approved |
+|---------|----------|
+| Database | PostgreSQL 16 |
+| Container | Docker Compose |
+| Metrics | Prometheus + prom-client |
+| Logs | Structured JSON → Loki via Promtail |
+
+## Hard rules
+
+```ts
+// ❌ FORBIDDEN — never add these imports
+import { createStore } from 'redux';
+import create from 'zustand';
+import useSWR from 'swr';
+import { useQuery } from '@apollo/client';
+import { styled } from 'styled-components';
+import { Form } from 'formik';
+
+// ✅ APPROVED equivalents
+import { useQuery } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';   // shadcn
+```
+
+## Adding a new dependency
+Before adding any package not in the approved list:
+1. Check if an approved library already covers the use case
+2. If genuinely missing, document the reason in the PR description
+3. Never add a dependency just because it's familiar from another project

@@ -1,161 +1,105 @@
+---
+name: marketplace
+description: Six marketplace skills connected to Signal Lab. Explains what each covers and what custom skills fill in the gaps.
+version: 1.0.0
+---
+
 # Marketplace Skills
 
-Six external integrations wired into Signal Lab workflows.
-Each entry explains what it does, how to connect it, and how it fits the project.
+## Why marketplace + custom skills together
+
+Marketplace skills cover general best practices for each technology.
+Custom skills cover Signal Lab-specific conventions that marketplace skills cannot know:
+- Our exact metric naming pattern (`[domain]_[action]_[unit]`)
+- Our structured log format (`{ event: 'snake_case_verb_noun', ... }`)
+- Our approved library list (TanStack Query, not SWR; shadcn, not MUI)
+- Our Prisma schema location and migration workflow
+- Our observability 3-pillar requirement on every service method
 
 ---
 
-## 1. Code Generation — Cursor Tab (built-in)
+## 1. nestjs-best-practices
 
-**What it does:** Autocompletes boilerplate as you type — DTOs, Prisma queries, controller stubs.
+**Why:** NestJS has many valid patterns. This skill locks in the ones Signal Lab uses:
+module-per-feature, constructor DI, global pipes, global exception filter.
+Prevents a new chat from suggesting Express middleware patterns or manual DI.
 
-**How to connect:** Already active in Cursor. No setup needed.
-
-**How we use it in Signal Lab:**
-- Start typing `export class Create` → Tab completes the DTO with `class-validator` decorators
-- Start typing `this.prisma.scenarioRun.` → Tab suggests `findMany`, `create`, `update` with correct args
-- Pair with `create-endpoint` skill: Cursor Tab fills the repetitive parts, the skill enforces structure
-
-**Constraint:** Tab-completed code must still pass `observability-check` before commit.
-The hook will catch anything missing.
+**Gap covered by custom skills:** `nestjs-patterns.mdc` adds Signal Lab-specific
+rules (no logic in controllers, PrismaModule is global, exception map).
 
 ---
 
-## 2. Refactoring — Cursor Cmd+K
+## 2. prisma-orm
 
-**What it does:** Inline AI edits — extract method, rename, simplify, restructure.
+**Why:** Covers Prisma query API, relations, migrations, and type safety.
+Prevents a new chat from suggesting raw SQL or TypeORM patterns.
 
-**How to connect:** Select code → `Cmd+K` (Mac) / `Ctrl+K` (Windows) → describe the change.
-
-**How we use it in Signal Lab:**
-
-Extract the repeated try/catch/log/metric/sentry pattern into a wrapper:
-```
-Select the try/catch block in scenarios.service.ts
-Cmd+K → "extract into a withObservability(name, fn) helper that handles
-         logging, metrics, and Sentry automatically"
-```
-
-Rename after a Prisma migration:
-```
-Cmd+K → "rename all references from scenarioRun to ScenarioExecution
-         to match the updated Prisma schema"
-```
-
-**Constraint:** After any refactor, run `observability-check` to confirm
-`logger`, `metrics`, and `Sentry` calls were not removed.
+**Gap covered by custom skills:** `prisma-patterns.mdc` adds our specific
+forbidden patterns (`$queryRaw`, raw drivers), our schema location
+(`signal-lab/prisma/schema.prisma`), and our migration workflow.
 
 ---
 
-## 3. Testing — Cursor Chat + Vitest
+## 3. next-best-practices (vercel/next.js)
 
-**What it does:** Generates unit tests from service method signatures.
+**Why:** Covers App Router conventions, Server vs Client components,
+metadata API, and image optimization. Prevents mixing Pages Router patterns
+into the App Router codebase.
 
-**How to connect:**
-```bash
-yarn workspace @signal-lab/api add -D vitest @vitest/coverage-v8
-```
-Add to `signal-lab/apps/api/package.json`:
-```json
-"scripts": { "test": "vitest run", "test:watch": "vitest" }
-```
-
-**How we use it in Signal Lab:**
-
-Open `scenarios.service.ts` → Cursor Chat:
-```
-Write Vitest unit tests for ScenariosService covering:
-1. create() — success path: returns completed run with metric
-2. create() — system_error: returns failed run with error message
-3. create() — DB failure: Sentry.captureException is called
-Mock PrismaService and MetricsService. Do not hit the real DB.
-```
-
-Output location: `signal-lab/apps/api/src/scenarios/scenarios.service.spec.ts`
-
-**Constraint:** Tests must mock `PrismaService` and `MetricsService`.
-Never use a real DB connection in unit tests.
+**Gap covered by custom skills:** `frontend-patterns.mdc` adds our specific
+library choices (TanStack Query not SWR, RHF not Formik, shadcn not MUI)
+and our `'use client'` minimization rule.
 
 ---
 
-## 4. Documentation — Cursor Chat + Markdown
+## 4. shadcn-ui
 
-**What it does:** Generates API reference docs from controllers and DTOs.
+**Why:** shadcn/ui components are copy-pasted, not installed as a package.
+This skill knows the component API, variant system, and how to extend them.
+Prevents a new chat from importing from `@shadcn/ui` (which doesn't exist).
 
-**How to connect:** No install needed — use Cursor Chat with the file in context.
-
-**How we use it in Signal Lab:**
-
-Open `scenarios.controller.ts` + `create-scenario.dto.ts` → Cursor Chat:
-```
-Generate API reference documentation for these endpoints in Markdown.
-Include: method, path, request body schema, response schema, example request/response.
-Output to docs/api/scenarios.md
-```
-
-For OpenAPI spec generation:
-```bash
-yarn workspace @signal-lab/api add @nestjs/swagger swagger-ui-express
-```
-Then add `SwaggerModule.setup('docs', app, ...)` in `main.ts` →
-Swagger UI available at `http://localhost:3001/docs`.
+**Gap covered by custom skills:** `shadcn-form.md` skill adds the full
+RHF + zod + shadcn integration pattern specific to Signal Lab forms,
+including accessibility attributes (`aria-invalid`, `role="alert"`).
 
 ---
 
-## 5. Security Scanning — Snyk
+## 5. tailwind-design-system
 
-**What it does:** Scans `package.json` dependencies for known CVEs.
+**Why:** Covers Tailwind utility classes, responsive design, dark mode with
+CSS variables, and the `cn()` utility pattern. Prevents inline styles and
+ensures consistent spacing/color usage.
 
-**How to connect:**
-```bash
-npm install -g snyk
-snyk auth   # opens browser for login
-```
-
-**How we use it in Signal Lab:**
-```bash
-# Scan from workspace root
-snyk test --severity-threshold=high
-
-# Monitor continuously (sends to Snyk dashboard)
-snyk monitor
-```
-
-**Wire into CI** (GitHub Actions):
-```yaml
-- name: Security scan
-  run: npx snyk test --severity-threshold=high
-  env:
-    SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-```
-
-**Block on:** High-severity CVEs in `@nestjs/*`, `@prisma/client`, `@sentry/node`, `next`.
+**Gap covered by custom skills:** `frontend-patterns.mdc` adds our specific
+CSS variable setup (HSL values in `globals.css`) and the rule that
+styled-components/emotion are forbidden.
 
 ---
 
-## 6. Observability AI — Grafana Sift
+## 6. docker-expert
 
-**What it does:** Automatically correlates metrics spikes with log anomalies —
-no manual query writing needed.
+**Why:** Covers multi-stage Dockerfiles, health checks, volume mounts for
+hot reload, and compose service dependencies. Prevents naive single-stage
+builds and missing `depends_on` conditions.
 
-**How to connect:**
-1. Open Grafana at `http://localhost:3200`
-2. Go to **Explore** → select **Loki** datasource
-3. For cloud: enable **Sift** in Grafana Cloud settings → point at Signal Lab datasources
+**Gap covered by custom skills:** Our `docker-compose.yml` uses
+`condition: service_healthy` on postgres and runs `prisma migrate deploy`
+as part of the backend startup command — patterns specific to Signal Lab
+that marketplace skills don't know.
 
-**How we use it in Signal Lab:**
+---
 
-After running `system_error` scenario:
-- Sift detects spike in `scenario_runs_total{status="failed"}`
-- Automatically surfaces correlated Loki entries: `event="scenario_failed"`
-- Links to the Sentry issue via the `runId` in the log
+## Coverage map
 
-Manual Loki query for the same result:
-```logql
-{container="signal-lab-api"} | json
-  | event=`scenario_failed`
-  | line_format `{{.scenario}} — {{.error}}`
-```
-
-**Grafana dashboard:** Pre-provisioned at `signal-lab/infra/docker/grafana/provisioning/dashboards/signal-lab.json`
-Opens automatically when Grafana container starts.
+| Concern | Marketplace skill | Custom rule/skill |
+|---------|------------------|-------------------|
+| NestJS architecture | nestjs-best-practices | `nestjs-patterns.mdc` |
+| Prisma ORM | prisma-orm | `prisma-patterns.mdc` |
+| Next.js App Router | next-best-practices | `frontend-patterns.mdc` |
+| shadcn/ui components | shadcn-ui | `shadcn-form.md` skill |
+| Tailwind CSS | tailwind-design-system | `frontend-patterns.mdc` |
+| Docker Compose | docker-expert | `docker-compose.yml` patterns |
+| Observability | *(not in marketplace)* | `observability-conventions.mdc` + `observability.md` skill |
+| Stack constraints | *(not in marketplace)* | `stack-constraints.mdc` |
+| Error handling | *(not in marketplace)* | `error-handling.mdc` |
+| Orchestration | *(not in marketplace)* | `orchestrator.md` skill |
