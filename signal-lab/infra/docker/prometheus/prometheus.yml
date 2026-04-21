@@ -3,7 +3,7 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: signal-lab-api
+  - job_name: signal-lab-backend
     static_configs:
-      - targets: ["api:3001"]
-    metrics_path: /api/metrics
+      - targets: ["backend:3001"]
+    metrics_path: /metrics

@@ -110,11 +110,11 @@ rules, skills, commands, hooks, and marketplace skills.
 
 ## Scenarios
 
-| Type | Behaviour |
-|------|-----------|
-| `load_test` | Random metric 0-100, status `completed` |
-| `stress_test` | Random metric 0-100, status `completed` |
-| `system_error` | Throws error, status `failed`, captured in Sentry |
-| `slow_query` | Sleeps 500-2000ms, status `completed` |
-| `chaos_monkey` | **Bonus** — random failure (~50%) + random delay (0-1000ms) |
-| *(any other)* | Random metric, status `completed` |
+| Type | Behaviour | Signals |
+|------|-----------|---------|
+| `success` | Completes normally | log: info, metric: counter+1, histogram |
+| `validation_error` | Returns 400 immediately | log: warn, metric: error counter |
+| `system_error` | Throws 500 + Sentry capture | log: error, metric: error counter, Sentry exception |
+| `slow_request` | 2-5s artificial delay | log: warn (slow), histogram spike |
+| `teapot` | **Bonus** — HTTP 418, `{ signal: 42 }`, `metadata: { easter: true }` | log: info, DB record |
+| `chaos_monkey` | Random failure ~50% + random delay | log: info or error |

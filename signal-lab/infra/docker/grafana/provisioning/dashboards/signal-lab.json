@@ -2,14 +2,14 @@
   "title": "Signal Lab",
   "uid": "signal-lab-main",
   "schemaVersion": 38,
-  "version": 2,
+  "version": 3,
   "refresh": "10s",
   "time": { "from": "now-1h", "to": "now" },
   "panels": [
     {
       "id": 1,
-      "title": "Runs per minute — by type",
-      "description": "Rate of scenario runs, split by type. Spike = load; flatline = idle.",
+      "title": "Scenario Runs by Type (counter over time)",
+      "description": "Rate of scenario runs per minute, split by type. PRD 002 F8.",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -30,15 +30,15 @@
     },
     {
       "id": 2,
-      "title": "Error rate — failed / total",
-      "description": "Ratio of failed runs. Should be 0 for all types except system_error and chaos_monkey.",
+      "title": "Error Rate (counter filtered by status=error/failed)",
+      "description": "Ratio of failed+error runs to total. PRD 002 F8.",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (type) (rate(scenario_runs_total{status=\"failed\"}[1m])) / sum by (type) (rate(scenario_runs_total[1m]))",
-          "legendFormat": "{{type}} error rate",
+          "expr": "sum by (type) (rate(scenario_runs_total{status=~\"failed|error\"}[1m])) / sum by (type) (rate(scenario_runs_total[1m]))",
+          "legendFormat": "{{type}}",
           "refId": "A"
         }
       ],
@@ -60,26 +60,26 @@
     },
     {
       "id": 3,
-      "title": "Duration p50 / p95 (ms)",
-      "description": "Scenario execution time. slow_query should show 500-2000ms; others <50ms.",
+      "title": "Latency Distribution — p50 / p95 (seconds)",
+      "description": "scenario_run_duration_seconds histogram. slow_request should show 2-5s. PRD 002 F8.",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (type, le) (rate(scenario_duration_ms_bucket[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (type, le) (rate(scenario_run_duration_seconds_bucket[5m])))",
           "legendFormat": "p50 {{type}}",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (type, le) (rate(scenario_duration_ms_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (type, le) (rate(scenario_run_duration_seconds_bucket[5m])))",
           "legendFormat": "p95 {{type}}",
           "refId": "B"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "s",
           "color": { "mode": "palette-classic" },
           "custom": { "lineWidth": 2 }
         }
@@ -87,22 +87,34 @@
     },
     {
       "id": 4,
-      "title": "Total runs — completed vs failed",
-      "description": "Cumulative counter. Use to verify scenarios are being recorded.",
-      "type": "stat",
-      "gridPos": { "x": 12, "y": 8, "w": 6, "h": 8 },
+      "title": "HTTP Requests Total",
+      "description": "http_requests_total by method, path, status_code. PRD 002 F5.",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum(scenario_runs_total{status=\"completed\"})",
-          "legendFormat": "Completed",
+          "expr": "sum by (path, status_code) (rate(http_requests_total[1m]))",
+          "legendFormat": "{{path}} {{status_code}}",
           "refId": "A"
-        },
-        {
-          "expr": "sum(scenario_runs_total{status=\"failed\"})",
-          "legendFormat": "Failed",
-          "refId": "B"
         }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Run totals — completed vs failed",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(scenario_runs_total{status=\"completed\"})", "legendFormat": "Completed", "refId": "A" },
+        { "expr": "sum(scenario_runs_total{status=\"failed\"})", "legendFormat": "Failed", "refId": "B" }
       ],
       "fieldConfig": {
         "defaults": { "unit": "short" },
@@ -111,14 +123,13 @@
           { "matcher": { "id": "byName", "options": "Failed" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
         ]
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "vertical", "textMode": "value_and_name", "colorMode": "background" }
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "textMode": "value_and_name" }
     },
     {
-      "id": 5,
-      "title": "chaos_monkey — success rate",
-      "description": "chaos_monkey fails ~50% of the time by design. This panel shows the actual rate.",
+      "id": 6,
+      "title": "chaos_monkey success rate",
       "type": "gauge",
-      "gridPos": { "x": 18, "y": 8, "w": 6, "h": 8 },
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 6 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -144,15 +155,28 @@
       }
     },
     {
-      "id": 6,
-      "title": "All scenario logs",
-      "description": "Structured JSON logs from the backend. Filter by type using the search bar above.",
+      "id": 7,
+      "title": "teapot signal",
+      "description": "Should show 42 when teapot scenario is run.",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(scenario_runs_total{type=\"teapot\"})", "legendFormat": "🫖 teapot runs", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "fixedColor": "purple", "mode": "fixed" } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "id": 8,
+      "title": "Loki — All scenario logs (filterable by scenarioType)",
+      "description": "Query: {app=\"signal-lab\"} | json | event=~\"scenario_run.*\". Filter by scenarioType label. PRD 002 F8 optional.",
       "type": "logs",
-      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 10 },
+      "gridPos": { "x": 0, "y": 22, "w": 24, "h": 10 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "{container=\"signal-lab-backend\"} | json | event=~\"scenario_run.*\"",
+          "expr": "{app=\"signal-lab\"} | json | event=~\"scenario_run.*\"",
           "refId": "A"
         }
       ],
@@ -160,20 +184,19 @@
         "showTime": true,
         "showLabels": true,
         "wrapLogMessage": false,
-        "sortOrder": "Descending",
-        "dedupStrategy": "none"
+        "sortOrder": "Descending"
       }
     },
     {
-      "id": 7,
-      "title": "Failed runs — errors only",
-      "description": "Only scenario_run_failed events. Each line has type, runId, error, durationMs.",
+      "id": 9,
+      "title": "Loki — Failed runs only",
+      "description": "Query: {app=\"signal-lab\"} | json | event=\"scenario_run_failed\"",
       "type": "logs",
-      "gridPos": { "x": 0, "y": 26, "w": 24, "h": 8 },
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "{container=\"signal-lab-backend\"} | json | event=\"scenario_run_failed\"",
+          "expr": "{app=\"signal-lab\"} | json | event=\"scenario_run_failed\"",
           "refId": "A"
         }
       ],

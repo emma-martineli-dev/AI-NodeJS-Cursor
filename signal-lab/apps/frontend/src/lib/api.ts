@@ -11,12 +11,12 @@ export interface ScenarioRun {
   status: string;
   duration: number | null;
   error: string | null;
-  metadata: Record<string, unknown> | null;
   createdAt: string;
 }
 
 export interface RunScenarioPayload {
   type: string;
+  name?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -32,12 +32,17 @@ export async function fetchRuns(): Promise<ScenarioRun[]> {
   return res.json();
 }
 
-export async function runScenario(payload: RunScenarioPayload): Promise<{ id: string; status: string; createdAt: string }> {
+export async function runScenario(
+  payload: RunScenarioPayload,
+): Promise<{ id: string; status: string; duration: number | null; createdAt: string }> {
   const res = await fetch(`${BASE}/scenarios/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Run failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? `Request failed: ${res.status}`);
+  }
   return res.json();
 }

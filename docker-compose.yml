@@ -1,7 +1,7 @@
 version: "3.9"
 
-# Root convenience wrapper — delegates to signal-lab/docker-compose.yml
-# Run from D:\test\2026-4-21-AI with: docker compose up -d
+# Signal Lab — one command starts everything
+# Run from repo root: docker compose up -d
 
 services:
   postgres:
@@ -25,11 +25,13 @@ services:
     build:
       context: ./signal-lab/apps/backend
       dockerfile: Dockerfile
+    container_name: signal-lab-backend
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-signal}:${POSTGRES_PASSWORD:-signal}@postgres:5432/${POSTGRES_DB:-signal_lab}
       PORT: 3001
       NODE_ENV: development
+      SENTRY_DSN: ${SENTRY_DSN:-}
     ports:
       - "3001:3001"
     volumes:
@@ -41,11 +43,17 @@ services:
     command: >
       sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma &&
              npm run start:dev"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
       context: ./signal-lab/apps/frontend
       dockerfile: Dockerfile
+    container_name: signal-lab-frontend
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
@@ -56,5 +64,56 @@ services:
     depends_on:
       - backend
 
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: signal-lab-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: signal-lab-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./signal-lab/infra/docker/promtail/config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: signal-lab-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./signal-lab/infra/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: signal-lab-grafana
+    restart: unless-stopped
+    ports:
+      - "3200:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./signal-lab/infra/docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+      - prometheus
+
 volumes:
   postgres_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:

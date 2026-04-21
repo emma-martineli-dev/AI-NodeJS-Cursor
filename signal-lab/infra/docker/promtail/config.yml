@@ -14,17 +14,26 @@ scrape_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
     relabel_configs:
+      # Add app="signal-lab" label to all containers in this compose
+      - target_label: app
+        replacement: signal-lab
+      # Add container name label
       - source_labels: [__meta_docker_container_name]
+        regex: /(.*)
         target_label: container
+      # Add service label from compose
       - source_labels: [__meta_docker_container_label_com_docker_compose_service]
         target_label: service
     pipeline_stages:
+      # Parse JSON logs
       - json:
           expressions:
             level: level
             event: event
-            scenario: scenario
+            scenarioType: scenarioType
+            scenarioId: scenarioId
+      # Promote parsed fields as labels for filtering
       - labels:
           level:
           event:
-          scenario:
+          scenarioType:
