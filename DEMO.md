@@ -80,7 +80,7 @@ The Recent Runs table updates automatically.
 
 ---
 
-## Step 5 — Trigger an error (1 min)
+## Step 5 — Trigger an error and chaos (2 min)
 
 Click **"Run system_error"** button in the UI, or:
 
@@ -92,10 +92,18 @@ curl -s -X POST http://localhost:3001/api/scenarios/run \
 
 Expected:
 ```json
-{
-  "status": "failed",
-  "error": "Simulated failure"
-}
+{ "status": "failed", "error": "Simulated failure" }
+```
+
+Also run the bonus scenario — `chaos_monkey` fails ~50% of the time:
+
+```bash
+# Run 4 times to see both outcomes
+for i in 1 2 3 4; do
+  curl -s -X POST http://localhost:3001/api/scenarios/run \
+    -H "Content-Type: application/json" \
+    -d '{"type":"chaos_monkey"}' | jq '{status, error}'
+done
 ```
 
 ---
@@ -145,12 +153,19 @@ Open **http://localhost:3200**
 - Login: `admin` / `admin`
 - Navigate to **Dashboards → Signal Lab**
 
-You should see:
-- **Scenario Metric Over Time** — timeseries of scenario_runs_total
-- **Scenario Logs** — JSON log entries from Loki
-- **Failed Scenarios** — filtered view of failed runs
+You should see 7 panels:
 
-Run a few more scenarios to see the graphs update.
+| Panel | What it shows |
+|-------|--------------|
+| Runs per minute — by type | Rate of runs, split by scenario type |
+| Error rate — failed/total | Ratio of failures per type (system_error = 100%, chaos_monkey ≈ 50%) |
+| Duration p50/p95 (ms) | slow_query shows 500-2000ms; others <50ms |
+| Total runs — completed vs failed | Cumulative counters with color coding |
+| chaos_monkey success rate | Gauge showing ~50% success rate |
+| All scenario logs | Filterable JSON logs from Loki |
+| Failed runs — errors only | Only `scenario_run_failed` events |
+
+Run a few more scenarios to see the graphs update in real time.
 
 ---
 

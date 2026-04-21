@@ -116,4 +116,5 @@ rules, skills, commands, hooks, and marketplace skills.
 | `stress_test` | Random metric 0-100, status `completed` |
 | `system_error` | Throws error, status `failed`, captured in Sentry |
 | `slow_query` | Sleeps 500-2000ms, status `completed` |
+| `chaos_monkey` | **Bonus** — random failure (~50%) + random delay (0-1000ms) |
 | *(any other)* | Random metric, status `completed` |

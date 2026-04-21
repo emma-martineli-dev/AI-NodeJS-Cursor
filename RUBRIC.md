@@ -1,128 +1,94 @@
-# Signal Lab — Evaluation Rubric
+# Signal Lab — Rubric
 
-Total: 100 points
-
----
-
-## 1. Engineering (35 pts)
-
-### 1.1 Application starts (10 pts)
-| Criteria | Points |
-|----------|--------|
-| `docker compose up -d` starts all services without errors | 4 |
-| Frontend accessible at localhost:3000 | 2 |
-| Backend accessible at localhost:3001 | 2 |
-| `GET /api/health` returns `{ status: "ok", timestamp: "..." }` | 2 |
-
-### 1.2 Scenario execution (10 pts)
-| Criteria | Points |
-|----------|--------|
-| `POST /api/scenarios/run {"type":"load_test"}` → status `completed`, metric populated | 3 |
-| `POST /api/scenarios/run {"type":"system_error"}` → status `failed`, error populated | 3 |
-| Run history persisted in PostgreSQL via Prisma | 2 |
-| Frontend form submits and shows result | 2 |
-
-### 1.3 Observability (15 pts)
-| Criteria | Points |
-|----------|--------|
-| `GET /api/metrics` returns Prometheus text with `scenario_runs_total` | 3 |
-| Logs are JSON with `event` field (verifiable via `docker compose logs`) | 3 |
-| Sentry receives exception on `system_error` (if DSN configured) | 3 |
-| Grafana dashboard loads and shows scenario metrics | 3 |
-| Loki has log entries after running a scenario | 3 |
+Total: 100 points. Strong execution threshold: 75+.
 
 ---
 
-## 2. AI Layer (40 pts)
+## 1. Working application and stack — 25 points
 
-### 2.1 Rules (10 pts)
-| Criteria | Points |
-|----------|--------|
-| Minimum 5 rule files present | 2 |
-| Each rule has clear single scope (no overlap) | 2 |
-| `stack-constraints.mdc` lists forbidden libraries with examples | 2 |
-| `observability-conventions.mdc` has metric naming + log format | 2 |
-| Rules have `alwaysApply: true` and correct globs | 2 |
-
-### 2.2 Custom Skills (10 pts)
-| Criteria | Points |
-|----------|--------|
-| Minimum 3 skills present | 2 |
-| Each skill has frontmatter (name, description) | 2 |
-| Each skill has "When to Use" section | 2 |
-| `observability.md` skill covers all 3 pillars with code examples | 2 |
-| Skills reference each other correctly (e.g. nestjs-endpoint calls observability) | 2 |
-
-### 2.3 Commands (8 pts)
-| Criteria | Points |
-|----------|--------|
-| Minimum 3 commands present | 2 |
-| `/add-endpoint` produces working NestJS slice | 2 |
-| `/check-obs` correctly identifies missing pillars | 2 |
-| Commands have gate checks (not just instructions) | 2 |
-
-### 2.4 Hooks (6 pts)
-| Criteria | Points |
-|----------|--------|
-| Minimum 2 hooks present as `.json` files | 2 |
-| `after-schema-change` hook triggers on schema edit | 2 |
-| `after-new-endpoint` hook checks observability on new files | 2 |
-
-### 2.5 Marketplace Skills (6 pts)
-| Criteria | Points |
-|----------|--------|
-| Minimum 6 marketplace skills listed | 2 |
-| Each skill has justification for why it's relevant | 2 |
-| Gap analysis: what custom skills cover that marketplace doesn't | 2 |
+| Score | What the interviewer sees |
+|-------|--------------------------|
+| 0–8 | App doesn't start or stack partially followed. Docker Compose fails, no health endpoint, frontend empty. |
+| 9–16 | App starts. Frontend + backend + PG work. Basic UI and API. Part of stack may be connected formally (RHF/TanStack without real use). |
+| 17–21 | Full stack used as intended. Form via RHF, requests via TanStack Query, shadcn components, NestJS with Prisma. Clean structure. |
+| 22–25 | Everything from 17–21, plus: hot reload works, .env.example complete, Swagger present, seed optional but useful. Code reads easily. |
 
 ---
 
-## 3. Orchestrator (20 pts)
+## 2. Observability — 25 points
 
-### 3.1 Structure (5 pts)
-| Criteria | Points |
-|----------|--------|
-| `SKILL.md`, `COORDINATION.md`, `EXAMPLE.md` all present | 2 |
-| All 7 phases defined with model assignment | 3 |
-
-### 3.2 Context economy (5 pts)
-| Criteria | Points |
-|----------|--------|
-| Each phase specifies exactly which files to load | 2 |
-| Main chat budget documented (~15k tokens) | 1 |
-| Token budget breakdown present in EXAMPLE.md | 2 |
-
-### 3.3 Task decomposition (5 pts)
-| Criteria | Points |
-|----------|--------|
-| Tasks have `model: fast|default` field | 2 |
-| 80%+ tasks marked as `fast` in example | 1 |
-| Each task has `dependsOn`, `files`, `skill` fields | 2 |
-
-### 3.4 Resumability (5 pts)
-| Criteria | Points |
-|----------|--------|
-| Step 0 checks for existing `context.json` | 2 |
-| Completed phases are skipped on resume | 2 |
-| Resume scenario demonstrated in EXAMPLE.md | 1 |
+| Score | What the interviewer sees |
+|-------|--------------------------|
+| 0–8 | Observability declared but verification walkthrough fails. Dashboard empty, Loki not connected, Sentry DSN placeholder. |
+| 9–16 | Part of the path works: metrics exist but dashboard is decorative. Or Sentry catches errors but Loki not configured. Interviewer can partially reproduce signals. |
+| 17–21 | 4 scenario types work. Metrics in Prometheus, logs in Loki, errors in Sentry. Dashboard with 3+ panels. Verification walkthrough completes in 5 minutes. |
+| 22–25 | Everything from 17–21, plus: metrics meaningfully named, logs filterable by scenarioType, dashboard genuinely useful (not "hello world" panels), Loki panel in Grafana. |
 
 ---
 
-## 4. Documentation (5 pts)
+## 3. Cursor AI Layer — 25 points
 
-| Criteria | Points |
-|----------|--------|
-| README sufficient to start in 3 minutes | 2 |
-| Demo walkthrough: "click here, see there" | 2 |
-| AI layer documented (rules, skills, commands, hooks) | 1 |
+| Score | What the interviewer sees |
+|-------|--------------------------|
+| 0–8 | Files exist but are formal: rules empty or copy-paste, skills without specific instructions, commands don't work. |
+| 9–16 | Skills and rules are useful but not all scoped. Marketplace skills connected but choice not explained. Hooks declarative. |
+| 17–21 | Each artifact has a clear role. Custom skills with good "When to Use". Commands accelerate real workflows. Rules prevent typical errors. Marketplace skills justified. |
+| 22–25 | Everything from 17–21, plus: new Cursor chat actually gets context, hooks catch real problems, AI layer documentation concise but complete. A system is visible, not a set of files. |
+
+---
+
+## 4. Orchestrator — 15 points
+
+| Score | What the interviewer sees |
+|-------|--------------------------|
+| 0–5 | There's a prompt but no decomposition, no context file, no model selection. Essentially one large single prompt. |
+| 6–10 | context.json and phases exist. Tasks broken down but model selection is formal ("everything fast"). Retry/resume doesn't work. |
+| 11–15 | Atomic decomposition is convincing. Tasks marked fast/default with justification. Context file enables resume. Orchestrator connected to other skills. Final report is readable. |
+
+---
+
+## 5. Documentation and DX — 10 points
+
+| Score | What the interviewer sees |
+|-------|--------------------------|
+| 0–3 | README exists but startup requires guessing. No verification walkthrough. |
+| 4–7 | README sufficient for startup. Verification instructions present. AI layer described as a list. |
+| 8–10 | README allows verifying everything in 15 minutes. AI layer documented with "why" not just "what". Screenshots or video — bonus. |
 
 ---
 
 ## Penalties
-| Issue | Penalty |
-|-------|---------|
-| Forbidden library used (Redux, SWR, MUI, Formik, TypeORM) | -5 per library |
-| Raw SQL in application code | -5 |
-| Hardcoded secrets in committed files | -10 |
-| `docker compose up -d` fails | -15 |
-| Stack element replaced without justification | -10 |
+
+Applied after score calculation. Minimum final score: 0.
+
+| Penalty | When |
+|---------|------|
+| −15 | Required stack replaced without justification |
+| −15 | No working verification walkthrough for observability |
+| −10 | No custom Cursor skills |
+| −10 | No marketplace skills or they're unexplained |
+| −10 | No hooks or commands |
+| −5 | Solution can't be started from README |
+
+Maximum penalties: −50 (but total cannot go below 0).
+
+---
+
+## Bonus
+
+A hidden optional bonus scenario is in the PRD. If found and implemented: **+5 points** above 100.
+
+> Hint: the `ScenarioRun.type` field comment says "attentive readers may find a fifth".
+> The fifth scenario is `chaos_monkey` — random failure + random delay combined.
+
+---
+
+## Final scale
+
+| Score | Recommendation |
+|-------|---------------|
+| 80–100 | **Strong hire** — systems thinking, working result, AI layer as a product |
+| 65–79 | **Hire** — good foundation, some gaps, but solid base |
+| 50–64 | **Lean hire** — code works but AI layer weak or observability formal |
+| 30–49 | **Lean no** — significant gaps but direction is understood |
+| 0–29 | **No hire** — basic requirements not met |

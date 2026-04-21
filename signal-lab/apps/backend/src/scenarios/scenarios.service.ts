@@ -87,6 +87,16 @@ export class ScenariosService {
         return parseFloat((Math.random() * 100).toFixed(2));
       }
 
+      // Bonus: fifth scenario — random failure + random delay combined
+      case 'chaos_monkey': {
+        const delay = Math.floor(Math.random() * 1000);
+        await new Promise((r) => setTimeout(r, delay));
+        if (Math.random() < 0.5) {
+          throw new Error('Chaos monkey struck — random failure');
+        }
+        return parseFloat((Math.random() * 100).toFixed(2));
+      }
+
       case 'load_test':
       case 'stress_test':
       default:

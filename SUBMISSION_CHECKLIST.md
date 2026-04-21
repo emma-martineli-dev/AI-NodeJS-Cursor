@@ -110,7 +110,10 @@ Fill in this file before submitting. Be honest — reviewers will verify everyth
 
 ---
 
-## Known issues / incomplete items
+## Bonus scenario
+- [x] `chaos_monkey` scenario implemented — random failure (~50%) + random delay (0-1000ms)
+- [x] Grafana panel shows chaos_monkey success rate gauge
+- [x] Identified from PRD hint: "attentive readers may find a fifth" in ScenarioRun.type comment
 
 - Prisma `migrate dev` has a known issue with the local Prisma Postgres server (P1017 shadow DB connection). Workaround: `npx prisma db push` works correctly. The Docker Compose setup uses `prisma migrate deploy` which applies existing migration files without needing a shadow DB.
 - Sentry integration requires a real `SENTRY_DSN` to verify in the dashboard. The integration code is complete; set `SENTRY_DSN` in `.env` to activate.
