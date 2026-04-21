@@ -1,0 +1,91 @@
+---
+description: Enforce NestJS architectural patterns across the API
+globs: ["signal-lab/apps/api/src/**/*.ts"]
+alwaysApply: true
+---
+
+# NestJS Patterns
+
+## Controllers — HTTP boundary only
+Controllers translate HTTP in/out. Zero business logic.
+
+```ts
+// ✅ DO — delegate everything to the service
+@Post()
+@HttpCode(HttpStatus.CREATED)
+create(@Body() dto: CreateScenarioDto) {
+  return this.scenariosService.create(dto);
+}
+
+// ❌ DON'T — logic in controller
+@Post()
+async create(@Body() dto: CreateScenarioDto) {
+  if (!dto.name) return { error: 'missing name' };          // validation belongs in DTO
+  const run = await this.prisma.scenarioRun.create(...);    // DB belongs in service
+  return run;
+}
+```
+
+## Services — own all logic and DB access
+```ts
+// ✅ DO
+@Injectable()
+export class ScenariosService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findOne(id: string) {
+    const run = await this.prisma.scenarioRun.findUnique({ where: { id } });
+    if (!run) throw new NotFoundException(`ScenarioRun ${id} not found`);
+    return run;
+  }
+}
+
+// ❌ DON'T — instantiate dependencies manually
+export class ScenariosService {
+  private prisma = new PrismaClient();   // never — use DI
+}
+```
+
+## Modules — one per feature
+Every feature directory MUST have a `*.module.ts`.
+`@Global()` is reserved for infrastructure: `PrismaModule`, `MetricsModule`.
+
+```ts
+// ✅ DO
+@Module({
+  controllers: [ScenariosController],
+  providers: [ScenariosService],
+})
+export class ScenariosModule {}
+
+// ❌ DON'T — register feature providers in AppModule directly
+@Module({
+  providers: [ScenariosService, AlertsService, ReportsService], // sprawl
+})
+export class AppModule {}
+```
+
+## DTOs — validate every incoming payload
+```ts
+// ✅ DO
+export class CreateScenarioDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+}
+
+// ❌ DON'T — untyped body
+@Post()
+create(@Body() body: any) { ... }
+```
+
+## Error handling — use NestJS exceptions
+```ts
+// ✅ DO
+throw new NotFoundException(`ScenarioRun ${id} not found`);
+throw new BadRequestException('name must not be empty');
+
+// ❌ DON'T — raw errors leak stack traces to clients
+throw new Error('not found');
+return { error: 'something went wrong' };
+```

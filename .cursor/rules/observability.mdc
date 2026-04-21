@@ -1,0 +1,98 @@
+---
+description: Every service method must emit structured logs, a Prometheus metric, and capture errors in Sentry
+globs: ["signal-lab/apps/api/src/**/*.service.ts"]
+alwaysApply: true
+---
+
+# Observability — Three Pillars Required
+
+Any service method that touches the DB, calls external services, or runs business logic
+MUST implement all three pillars before the code is considered complete.
+
+---
+
+## Pillar 1 — Structured logs (→ Loki)
+
+Log objects, never strings. Always include an `event` field.
+
+```ts
+// ✅ DO — object with event field
+this.logger.log({ event: 'scenario_started', scenario: name, runId: run.id });
+this.logger.log({ event: 'scenario_completed', scenario: name, runId: run.id, metric });
+this.logger.error({ event: 'scenario_failed', scenario: name, runId: run.id, error: message });
+
+// ❌ DON'T — plain string (unparseable in Loki)
+this.logger.log('scenario started');
+this.logger.log(`running ${name}`);
+```
+
+Required events per method:
+- `[resource]_[action]_start` — on entry
+- `[resource]_[action]_success` — on completion
+- `[resource]_[action]_failed` — in catch block
+
+---
+
+## Pillar 2 — Prometheus metrics (→ Grafana)
+
+Every significant operation needs a counter. Duration-sensitive ops need a histogram.
+
+```ts
+// ✅ DO — counter on both paths
+this.metrics.scenarioCounter.inc({ scenario: name, status: 'completed' });
+
+// ✅ DO — histogram for duration
+const end = this.metrics.scenarioDuration.startTimer({ scenario: name });
+try {
+  // ... work ...
+  end();
+} catch (err) {
+  end();
+  throw err;
+}
+
+// ❌ DON'T — no metric emitted at all
+async create(dto: CreateScenarioDto) {
+  return this.prisma.scenarioRun.create({ data: dto }); // silent — Prometheus sees nothing
+}
+```
+
+---
+
+## Pillar 3 — Error tracking (→ Sentry)
+
+Every catch block that handles a real error MUST call `Sentry.captureException`.
+Always attach `tags` (for filtering) and `extra` (for context).
+
+```ts
+// ✅ DO
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  this.logger.error({ event: 'scenario_failed', scenario: name, error: message });
+  Sentry.captureException(err, {
+    tags: { scenario: name },
+    extra: { runId: run.id },
+  });
+  throw err;  // or rethrow as InternalServerErrorException
+}
+
+// ❌ DON'T — swallowed error, Sentry never notified
+} catch (err) {
+  this.logger.error('something failed');
+}
+
+// ❌ DON'T — Sentry called without context
+} catch (err) {
+  Sentry.captureException(err);  // no tags = unfilterable in Sentry dashboard
+}
+```
+
+---
+
+## Self-check before marking a method done
+
+- [ ] `logger.log({ event: '..._start', ... })` at method entry
+- [ ] `logger.log({ event: '..._success', ... })` on happy path
+- [ ] `logger.error({ event: '..._failed', ... })` in catch
+- [ ] `metrics.[counter].inc({ ..., status })` on both paths
+- [ ] `Sentry.captureException(err, { tags, extra })` in catch

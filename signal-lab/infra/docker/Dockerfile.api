@@ -1,0 +1,26 @@
+FROM node:20-alpine AS base
+RUN corepack enable
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json yarn.lock ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/db/package.json ./packages/db/
+RUN yarn install --frozen-lockfile
+
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN yarn workspace @signal-lab/db generate
+RUN yarn workspace @signal-lab/api build
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/db ./packages/db
+
+EXPOSE 3001
+CMD ["node", "dist/main"]

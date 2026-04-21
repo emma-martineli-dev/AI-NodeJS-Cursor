@@ -1,0 +1,60 @@
+version: "3.9"
+
+# Root convenience wrapper — delegates to signal-lab/docker-compose.yml
+# Run from D:\test\2026-4-21-AI with: docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-signal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-signal}
+      POSTGRES_DB: ${POSTGRES_DB:-signal_lab}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-signal}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./signal-lab/apps/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-signal}:${POSTGRES_PASSWORD:-signal}@postgres:5432/${POSTGRES_DB:-signal_lab}
+      PORT: 3001
+      NODE_ENV: development
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./signal-lab/apps/backend/src:/app/src
+      - ./signal-lab/prisma:/app/prisma
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma &&
+             npm run start:dev"
+
+  frontend:
+    build:
+      context: ./signal-lab/apps/frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./signal-lab/apps/frontend/src:/app/src
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

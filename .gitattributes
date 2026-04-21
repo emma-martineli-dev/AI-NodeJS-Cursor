@@ -1,0 +1,18 @@
+# Default — normalize line endings to LF in repo
+* text=auto eol=lf
+
+# Shell scripts must always be LF (they break with CRLF on Linux/Mac)
+*.sh text eol=lf
+
+# Windows batch files use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files — no line ending conversion
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

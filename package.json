@@ -1,0 +1,14 @@
+{
+  "name": "signal-lab-root",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "dotenv": "16.4.5",
+    "prisma": "7.7.0",
+    "typescript": "5.4.5"
+  },
+  "dependencies": {
+    "@prisma/client": "7.7.0",
+    "prom-client": "^15.1.3"
+  }
+}

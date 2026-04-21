@@ -1,0 +1,21 @@
+{
+  "name": "signal-lab",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "yarn workspace @signal-lab/web dev",
+    "dev:api": "yarn workspace @signal-lab/api start:dev",
+    "build:web": "yarn workspace @signal-lab/web build",
+    "build:api": "yarn workspace @signal-lab/api build",
+    "db:generate": "yarn workspace @signal-lab/db generate",
+    "db:migrate": "yarn workspace @signal-lab/db migrate:dev",
+    "healthcheck": "node scripts/healthcheck.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.4.5"
+  }
+}
