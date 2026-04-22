@@ -66,7 +66,6 @@ export class ScenariosService {
       data: {
         type: dto.type,
         status: 'running',
-        metadata: dto.metadata ?? undefined,
       },
     });
 
